@@ -1,0 +1,6 @@
+boot
+(boot)
+(doc boot)
+(load website.core)
+(load website.temp)
+(load 'website.temp)
