@@ -22,28 +22,36 @@
 (defn global-response [resp]
   (-> resp response (content-type "text/html; charset=UTF-8")))
 
-(defn home [req] (render-file "home.html"
+(defn connect-db
+  ([](:db (mg/connect-via-uri (str "mongodb://sls:666666@localhost/sls")))))
+(defn get-product-list []
+  (let [db (connect-db)
+        coll "products"]
+    (mc/find-maps db coll)))
+
+(defn get-product-list-memo
+  ([] ((memoize get-product-list))))
+
+(defn home
+  ([req] (render-file "home.html"
                       {
                        :title "Home"
                        :nav-items [{:label "Home" :url "/"}
                                    {:label "New Product" :url "/new-product"}
                                    {:label "About" :url "/about"}]
-                       :product-list-header ["图片" "名称" "数量" "尺寸" "型号"  "颜色"  "详情"]
-                       :product-list (let [conn (mg/connect)
-                                           db   (mg/get-db conn "sls")
-                                           u "sls"
-                                           p (.toCharArray (str 666666))
-                                           coll "products"]
-                                       (mc/find-maps db coll))
-                       }))
+                       :product-list-header ["image" "name" "count" "size" "label"  "color"  ""]
+                       :product-list (get-product-list-memo)
+                       })
+   ))
+
+
 
 (defroutes main-routes
   (route/files "/")
   (GET "/" [req] (home req))
   (GET "/new-product" [req] (render-file "new-product.html" {:title (json/write-str req)}))
   (GET "/about" [] (response "This is a private system."))
-  (route/not-found "Page not found")
-  )
+  (route/not-found "Page not found"))
 
 (def app (compojure.core/routes main-routes))
 
@@ -56,7 +64,7 @@
 ;;    (content-type "text/html; charset=UTF-8")))
 
 (defn launch []
-   (run-jetty app {:port 18080 :join? false :route "public"}))
+  (run-jetty app {:port 18080 :join? false :route "public"}))
 
 (defn -main
   "启动web应用程序"
@@ -68,10 +76,12 @@
 ;; sudo mongod
 
 (let [conn (mg/connect)
-      db   (mg/get-db conn "sls")
+      ;; mongodb://[username:password@]host1[:port1][,host2[:port2],…[,hostN[:portN]]][/[database][?options]]
+      db   (mg/connect-via-uri (str "mongodb://sls:666666@localhost/sls"))
       u "sls"
       p (.toCharArray (str 666666))
       coll "products"]
+  
   ;; (mg/authenticate db u p)
   ;; (mc/insert-and-return db "products" {:name "ksj" :color "黄" :count 50 :size 40 :label "default"})
   ;; (mc/find db coll {:count {"$gt" 10 "$lt" 99}})
@@ -79,6 +89,7 @@
   ;; (mc/remove db coll)
   ;; (mc/update db coll {:count {"$gt" 0}} {:count 20 :owner "高洪"} {:upsert true})
   ;; (pprint (mc/find-maps db coll))
+  
   )
 (defn restart []
   (.stop server)
