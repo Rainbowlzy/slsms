@@ -25,6 +25,7 @@
 (defn connect-db
   "mongodb://[username:password@]host1[:port1][,host2[:port2],…[,hostN[:portN]]][/[database][?options]]"
   ([](:db (mg/connect-via-uri (str "mongodb://sls:666666@localhost/sls")))))
+
 (defn get-product-list []
   (let [db (connect-db)
         coll "products"]
@@ -34,25 +35,32 @@
   ([] ((memoize get-product-list))))
 
 (defn home
-  ([req] (render-file "home.html"
-                      {:title "Home"
-                       :product-list-header ["image" "name" "count" "size" "label"  "color"  ""]
-                       :product-list (get-product-list-memo)
-                       :nav-items [{:label "Home" :url "/"}
-                                   {:label "New Product" :url "/new-product"}
-                                   {:label "About" :url "/about"}]
-                       })
+  ([req] (let []
+           (println req)
+           (render-file "home.html"
+                              {:title "Home"
+                               :sub-title (clojure.data.json/write-str {:req req})
+                               :product-list-header ["image" "name" "count" "size" "label"  "color"  ""]
+                               :product-list (get-product-list-memo)
+                               :nav-items [{:label "Home" :url "/"}
+                                           {:label "New Product" :url "/new-product"}
+                                           {:label "About" :url "/about"}]
+                               }))
    ))
-
-
 
 (defroutes main-routes
   (route/files "/")
   (GET "/" [req] (home req))
+  (POST "/"  {params :params} (response params))
+  (POST "/new-product"  [p-image p-name] (response (str "post 2 params " p-image p-name)))
+  (POST "/new-product" {params :params} (response (str "post as params" params)))
+  (GET "/login" [] (response "login success"))
   (GET "/new-product" [req] (render-file "new-product.html" {:title (json/write-str req)}))
   (GET "/about" [] (response "This is a private system."))
   (route/not-found "Page not found"))
 
+;; (:body (client/post "http://localhost:18080/new-product" {:p-name "name" :p-image "image"}))
+;; (-main)
 (def app (compojure.core/routes main-routes))
 
 ;; (defn handler [req]
@@ -100,5 +108,5 @@
 ;; (defn url-attack [] "http://www.baidu.com/baidu.php?url=ssRK00jnh8orQ_g9YOLug-S1m1Sqa7NOHE5osXkcszJquhfwOT5FcREBamf9qfcKjyXkDjl0b7apsAgZY9oBZb65YK7bznpZW8qUHcHF3ccH74QOscntp1_6AJgKa4pKB9IYsUf.7D_iHF8xnhA94wEYL_SNK-deQbfHgI3ynDgg6msw5I7AMHdd_NR2A5jkq8ZFqTrHllgw_E9tGbSNK-deQbmTMdWi1PjNz8smX5dxAS2FnvZWtonrHGEsfq8QjkSyHjblubltXQjkSyMHz4rMG34nheuztIdMugbzTEZF83e5ZGzmTMHvGYTjGo_5Z4mThedlTrHIt5s3The3IhZF8qISZFY3tyZWtVrM-zI5HkzuPv1-3eorzEFb4XrHIkvX5HblqoAVPXzOk8_eAThqPvlZoWmYlXgFYq5ZFbLUrgW8_e2thH-34PLZu3qrHoXkvyNq-----xHEer1IvUdPHV2XgZJyAp7WFYvyu70.U1Yk0ZDqV_1c8fKY5UUnzQb0pyYqnW0Y0ATqmhwln0KdpHdBmy-bIfKspyfqnHb0mv-b5HR40AdY5HDsnHIxn10sn-tknjD1g1nsnW00pvbqn0KzIjY3njT0uy-b5HD3rj6sg1DYPH7xnH6zPj7xnHbdPH9xnH6kn1PxnHTsnj7xnHRYrj9xnHD4nHT0mhbqnW0Yg1DdPfKVm1Y3rjc4n103Pdtknj7xnHnvrjnsPHcvndts0Z7spyfqn0Kkmv-b5H00ThIYmyTqn0KEIhsq0A7B5HKxn0K-ThTqn0KsTjYknjRsnW03PWTv0A4vTjYsQW0snj0snj0s0AdYTjYs0AwbUL0qn0KzpWYs0Aw-IWdsmsKhIjYs0ZKC5H00ULnqn0KBI1YknfK8IjYs0ZPl5fKYIgnqnHc1PjR3n1R1n1m4P1nzP10zrHR0ThNkIjYkPjR4P1fLP16LrHfv0ZPGujdBuj9WPjDLPH0snWnvuHR40AP1UHYkwjm3n1wDnj0znYD1wW-j0A7W5HD0TA3qn0KkUgfqn0KkUgnqn0KlIjYs0AwYpyfqn0K9TLKWm1Ys0ZNspy4Wm1Ys0APzm1YdP1bdP6&us=0.0.0.0.0.0.0&us=0.0.0.0.0.0.13&ck=6203.20.1459747842434.0.0.516.212.0&shh=www.baidu.com&sht=baiduhome_pg")
 ;; (future (client/get (url-attack)))
 
-(-main)
+;; (-main)
 (println "loaded.")

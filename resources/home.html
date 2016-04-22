@@ -70,8 +70,22 @@
 
   <div class="row">
     <h1>{{title}}</h1>
+    <h3>{{sub-title}}</h3>
   </div>
 
+  <div class="row">
+    <form action="/new-product" method="post">
+      <div class="form-group" >
+        <label for="p-image">Image</label>
+        <input name="p-image" type="text" value="" id="p-image"/>
+        <label for="p-name">Name</label>
+        <input name="p-name" type="text" value="" id="p-name"/>
+        <!-- <button class="btn btn-default" type="submit">Submit</button> -->
+        <input name="submit" type="submit" value="Submit" class="btn btn-default"/>
+      </div>
+    </form>
+  </div>
+  
   <div class="row">
     <div class="col-xs-6">
       <table class="table table-bordered">
