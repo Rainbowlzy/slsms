@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>{{title}}</h1>
+
+<h3>{{response}}</h3>
+
+<form action="/create-product" method="post">
+  <label for="">name</label>
+  <input name="name" type="text" value="ksj"/>
+  <label for="">color</label>
+  <input name="color" type="text" value="green"/>
+  <button class="btn btn-default" type="submit" id="submit">submit</button>
+</form>
+
+{% endblock %}
+
+
+

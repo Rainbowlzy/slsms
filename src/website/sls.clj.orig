@@ -46,6 +46,28 @@
 (render "{{title}}" {:title (render-file "insert.html" {})})
 
 (defn home
+<<<<<<< HEAD
+  ([req] (let []
+           (println req)
+           (render-file "home.html"
+                              {:title "Home"
+                               :sub-title (clojure.data.json/write-str {:req req})
+                               :product-list-header ["image" "name" "count" "size" "label"  "color"  ""]
+                               :product-list (get-product-list-memo)
+                               :nav-items [{:label "Home" :url "/"}
+                                           {:label "New Product" :url "/new-product"}
+                                           {:label "About" :url "/about"}]
+                               }))
+   ))
+
+(defroutes main-routes
+  (route/files "/")
+  (GET "/" [req] (home req))
+  (POST "/"  {params :params} (response params))
+  (POST "/new-product"  [p-image p-name] (response (str "post 2 params " p-image p-name)))
+  (POST "/new-product" {params :params} (response (str "post as params" params)))
+  (GET "/login" [] (response "login success"))
+=======
   ([req]
    (pprint (str (:body req)))
    (render-file "home-ext.html"
@@ -57,6 +79,8 @@
                   {:label "About" :url "/about"}]
       })
    ))
+
+
 
 
 (defn create-product
@@ -82,19 +106,24 @@
   (POST "/create-product" {params :params cookies :cookies} create-product)
   (POST "/delete-product" {params :params} delete-product)
   (GET "/" [req] home)
-  (POST "/new-product" {params :params} (response (str "post as params" params)))
-  (GET "/login" [] (response "login success"))
+>>>>>>> b004bfc1ffbe0db1a11889c55a9e6cdd25413c03
   (GET "/new-product" [req] (render-file "new-product.html" {:title (json/write-str req)}))
   (GET "/about" [req] (response "This is a private system."))
   (GET "/create-product" [req] (fn [req] (render-file "insert.html" {:title "Template insert page."})))
   (route/not-found "Page not found"))
 
+<<<<<<< HEAD
+;; (:body (client/post "http://localhost:18080/new-product" {:p-name "name" :p-image "image"}))
+;; (-main)
+(def app (compojure.core/routes main-routes))
+=======
 
 ;; (:body (client/post "http://localhost:18080/insert" {:name "hello"}))
 ;; (client/get "http://localhost:18080/insert" {:pname "hello" :pimage "img"})
 ;; (-main)
 
 (def app (-> #'main-routes wrap-params wrap-cookies wrap-keyword-params))
+>>>>>>> b004bfc1ffbe0db1a11889c55a9e6cdd25413c03
 
 ;; (defn handler [req]
 ;;   (->
@@ -121,7 +150,7 @@
       db   (mg/connect-via-uri (str "mongodb://sls:666666@localhost/sls"))
       coll "products"]
   ;; (mg/authenticate db u p)
-  ;; (mc/insert-and-return db "products" {:name "ksj" :color "é» :count 50 :size 40 :label "default"})
+  ;; (mc/insert-and-return db "products" {:name "ksj" :color "é»„" :count 50 :size 40 :label "default"})
   ;; (mc/find db coll {:count {"$gt" 10 "$lt" 99}})
   ;; (mc/remove db coll {:count {"$lt" 20}})
   ;; (mc/remove db coll)
