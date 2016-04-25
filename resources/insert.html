@@ -4,13 +4,14 @@
 
 <h1>{{title}}</h1>
 
-<h3>{{response}}</h3>
+<h3>{{sub-title}}</h3>
 
-<form action="/create-product" method="post">
-  <label for="">name</label>
-  <input name="name" type="text" value="ksj"/>
-  <label for="">color</label>
-  <input name="color" type="text" value="green"/>
+<form action="{{action}}" method="post">
+  <input name="_id" type="hidden" value="{{prod._id}}"/>
+  <div class="row"><label for="">name</label><input name="name" type="text" value="{{prod.name}}"/></div>
+  <div class="row"><label for="">color</label><input name="color" type="text" value="{{prod.color}}"/></div>
+  <div class="row"><label for="">size</label><input name="size" type="text" value="{{prod.size}}"/></div>
+  <div class="row"><label for="">label</label><input name="label" type="text" value="{{prod.label}}"/></div>
   <button class="btn btn-default" type="submit" id="submit">submit</button>
 </form>
 

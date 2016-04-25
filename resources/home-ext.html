@@ -4,8 +4,11 @@
 
 <script>
 
+  function show(productid){
+  window.location.href="/product-detail/"+productid;
+  }
   function deleteproduct(productid){
-  $.ajax("/delete-product",{method:"POST",data:{_id:productid}}).done(function(msg){alert(msg);})
+  $.ajax("/delete-product",{method:"POST",data:{_id:productid}}).done(function(msg){window.location.href="/"});
   }
 
 </script>

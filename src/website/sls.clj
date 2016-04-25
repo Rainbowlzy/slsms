@@ -5,8 +5,8 @@
         [clj.qrgen]
         [net.cgrand.enlive-html]
         [ring.middleware.params         :refer [wrap-params]]
-        [ring.middleware.cookies        :only [wrap-cookies]]
-        [ring.middleware.keyword-params :only [wrap-keyword-params]]
+        [ring.middleware.cookies        :refer [wrap-cookies]]
+        [ring.middleware.keyword-params :refer [wrap-keyword-params]]
         [selmer.parser])
   (:import [com.mongodb MongoOptions ServerAddress]
            [org.bson.types ObjectId]
@@ -21,11 +21,11 @@
             [monger.core :as mg]
             [monger.collection :as mc]
             [selmer.parser :refer [render-file]]))
-
-(defn map-keywords
-  ([my-map] (into {} 
-              (for [[k v] my-map] 
-                [(keyword k) v]))))
+(defn map-kv
+  ([my-map]
+   (into {} 
+         (for [[k v] my-map] 
+           [(keyword k) v]))))
 
 (defn global-response [resp]
   (-> resp response (content-type "text/html; charset=UTF-8")))
@@ -47,40 +47,77 @@
 
 (defn home
   ([req]
-   (pprint (str (:body req)))
    (render-file "home-ext.html"
-     {:title "Home"
-      :product-list-header ["image" "name" "count" "size" "label"  "color"  "" ""]
-      :product-list (get-product-list)
-      :nav-items [{:label "Home" :url "/"}
-                  {:label "New Product" :url "/create-product"}
-                  {:label "About" :url "/about"}]
-      })
+                {:title "Home"
+                 :product-list-header ["image" "name" "count" "size" "label"  "color"  "" ""]
+                 :product-list (get-product-list)
+                 :nav-items [{:label "Home" :url "/"}
+                             {:label "New Product" :url "/create-product"}
+                             {:label "About" :url "/about"}]
+                 })
    ))
 
 
 (defn create-product
   ([req]
-   (render-file "insert.html" {:response (str
+   (render-file
+    "insert.html"
+    {:response
+     (str
       (let [db (connect-db)]
         ;; (mg/authenticate db u p)
-        (mc/insert-and-return db "products" (map-keywords (:params req)))
+        (mc/insert-and-return db "products" (map-kv (:params req)))
         ))})))
 
 (defn delete-product
   ([req]
    (response
-     (str
-       (let [id (ObjectId. (:_id (map-keywords (:params req))))]
-         [(mc/remove-by-id (connect-db) "products" id) id]
-         )))))
+    (str
+     (let [id (ObjectId. (:_id (map-kv (:params req))))]
+       [(mc/remove-by-id (connect-db) "products" id) id]
+       )))))
 
-;; (mc/update db coll {:count {"$gt" 0}} {:count 20 :owner "高洪"} {:upsert true})
+(defn update-product
+  ([req]
+   (let [{params :params} req]
+     (let [para-kv (map-kv params)
+           id (:_id para-kv)
+           prod (dissoc para-kv :_id)]
+       (mc/update-by-id (connect-db) "products" (ObjectId. id) prod {:upsert true})
+       (home req)
+       )
+     ;; (response
+     ;;  (str
+     ;;   (let [params-keywords (map-kv params)
+     ;;         id (ObjectId. (:_id params-keywords))]
+     ;;     ;; (mc/update (connect-db) "products" {:_id id} params-keywords {:upsert true})
+     ;;     )
+     ;;   ))
+     )))
+
+(defn product-detail
+  ([req]
+   (let [{params :params} req]
+     (let [{id :id} params
+           prod (map-kv (mc/find-by-id (connect-db) "products" (ObjectId. id)))]
+       (render-file "insert.html" {:title (:name prod)
+                                   :action "/update-product"
+                                   :prod prod})))))
+(defn login
+  ([req]
+   (let [{cookies :cookies, params :params} req]
+     (if (and (= (:username params) "admin")
+              (= (:password params) "admin"))
+       ))))
 
 (defroutes main-routes
   (route/files "/")
   (POST "/create-product" {params :params cookies :cookies} create-product)
-  (POST "/delete-product" {params :params} delete-product)
+  (POST "/delete-product" {params :params cookies :cookies} delete-product)
+  (POST "/update-product" {params :params cookies :cookies} update-product)
+  (GET "/login" (render-file "login.html" {:title ""}))
+  (POST "/login" login)
+  (GET "/product-detail/:id" product-detail)
   (GET "/" [req] home)
   (POST "/new-product" {params :params} (response (str "post as params" params)))
   (GET "/login" [] (response "login success"))
