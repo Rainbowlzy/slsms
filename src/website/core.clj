@@ -5,12 +5,14 @@
         [clojure.pprint]
         [clojure.java.io :refer [copy delete-file file]]
         [clj.qrgen]
-        [net.cgrand.enlive-html]
+        ;; [net.cgrand.enlive-html :only [html-content]]
         [ring.middleware.multipart-params]
         [ring.middleware.session         :refer [wrap-session]]
         [ring.middleware.params         :refer [wrap-params]]
         [ring.middleware.cookies        :refer [wrap-cookies]]
         [ring.middleware.keyword-params :refer [wrap-keyword-params]]
+        [hiccup.form :as form]
+        [hiccup.core :refer [html]]
         [selmer.parser])
   
   (:import
@@ -21,18 +23,18 @@
    [com.mongodb MongoOptions ServerAddress]
    [org.bson.types ObjectId]
    [com.mongodb DB WriteConcern])
-  
-  (:require [net.cgrand.enlive-html :as html]
-            [clojure.data.json :as json]
-            [clojure.string :as string]
-            [clj-http.client :as client]
-            [compojure.handler :as handler]
-            [compojure.route :as route]
-            [compojure.core :refer [GET POST defroutes]]
-            [monger.core :as mg]
-            [monger.collection :as mc]
-            ;; [clojure.contrib [duck-streams :as ds]]
-            [selmer.parser :refer [render-file]]))
+  (:require
+   ;; [net.cgrand.enlive-html :as html]
+   [clojure.data.json :as json]
+   [clojure.string :as string]
+   [clj-http.client :as client]
+   [compojure.handler :as handler]
+   [compojure.route :as route]
+   [compojure.core :refer [GET POST defroutes]]
+   [monger.core :as mg]
+   [monger.collection :as mc]
+   ;; [clojure.contrib [duck-streams :as ds]]
+   [selmer.parser :refer [render-file]]))
 
 
 (defn save-image
@@ -62,7 +64,7 @@
 
 (defn connect-db
   "mongodb://[username:password@]host1[:port1][,host2[:port2],…[,hostN[:portN]]][/[database][?options]]"
-  ([](:db (mg/connect-via-uri (str "mongodb://sls:666666@localhost/sls")))))
+  ([] (:db (mg/connect-via-uri (str "mongodb://sls:666666@localhost/sls")))))
 
 (defn get-product-list []
   (let [db (connect-db)
@@ -76,7 +78,7 @@
   ([req]
    (render-file "home-ext.html"
                 {:title "Home"
-                 :user (str "Current User:" (-> req :session :user ))
+                 :user (str "Current User : " (-> req :session :user :username str))
                  :product-list-header ["image" "name" "count" "size" "label"  "color"  "" ""]
                  :product-list (get-product-list)
                  :nav-items [{:label "Home" :url "/"}
@@ -98,9 +100,8 @@
            {product-id :product-id}image-path-obj
            {image-path :image-path}image-path-obj
            {image-abs-path :image-abs-path}image-path-obj]
-       (let [para-kv (map-kv params)
-             id (:_id para-kv)
-             prod (assoc (dissoc para-kv :_id :image) :image image-path)]
+       (let [id (:_id params)
+             prod (assoc (dissoc params :_id :image) :image image-path)]
          (save-image tempfile image-abs-path)
          (mc/update-by-id (connect-db) "products" (ObjectId. id) prod {:upsert true})
          (home req)
@@ -126,11 +127,11 @@
          {image-abs-path :image-abs-path} image-path-obj
          ]
      (save-image tempfile image-abs-path)
-     (let [prod (assoc (map-kv (:params req)) :_id product-id :image image-path)
+     (let [prod (assoc (:params req) :_id product-id :image image-path)
            db (connect-db)]
        (render-file
         "insert.html"
-        {:title (str req)
+        {:title "Create Success!"
          :action "/create-product"
          :prod (mc/insert-and-return db "products" prod)})))))
 
@@ -138,11 +139,9 @@
   ([req]
    (response
     (str
-     (let [id (ObjectId. (:_id (map-kv (:params req))))]
+     (let [id (ObjectId. (:_id (:params req)))]
        [(mc/remove-by-id (connect-db) "products" id) id]
        )))))
-
-
 
 (defn query-product-by-id
   ([id] (map-kv (mc/find-by-id (connect-db) "products" (ObjectId. id)))))
@@ -162,19 +161,24 @@
   ([req]
    (let [{cookies :cookies} req
          {params :params} req
-         {session :session} req]
-     (let [{username :username} (map-kv params)
-           {password :password} (map-kv params)]
-       (if (not (nil? (:user session)))
-         (response (str (:username (first (:user session)))))
-         (let [user (mc/find-maps (connect-db) "users" {:username username,:password (encry password)} [:username])]
-           {:body
-            [(:user session)
-             user
-             ]
-            :session (assoc session :user user)}))))))
+         {session :session} req
+         {username :username} params
+         {password :password} params]
+     (let [user (mc/find-one-as-map (connect-db) "users" {:username (str username) :password (str (encry password))} [:username])
+           ent (assoc session :user user)]
+       (println (mc/find-one-as-map (connect-db) "users" {:username (str "admin")
+                                                          :password (str (encry "admin"))
+                                                          }))
+       {:body
+        (html
+         [:script "window.location.href='/';"])
+        :session ent}))))
+
 (defn show-login-page
-  ([req] (render-file "login.html" {:title ""})))
+  ([req] (render-file "login.html" {:title "Sign In"
+                                    :prod {:_id (ObjectId.)
+                                           :username "admin"
+                                           :password "admin"}})))
 
 (defn wrap-exception
   ([handler]
@@ -198,7 +202,7 @@
 (defroutes main-routes
   (route/files "/")
   
-  (GET "/create-product" [req] (fn [req] (render-file "insert.html" {:title "Template insert page."})))
+  (GET "/create-product" [req] (fn [req] (render-file "insert.html" {:title "Create A New Product in This Page."})))
   (GET "/login" [req] show-login-page)
   (GET "/product-detail/:id" [id] product-detail)
   (GET "/" [req] home)
@@ -223,7 +227,15 @@
      (let [rsp (handler request)]
        rsp))))
 
-(def app (-> #'main-routes wrap-params wrap-cookies wrap-keyword-params wrap-session wrap-multipart-params wrap-exception))
+(def app (-> #'main-routes
+             wrap-keyword-params
+             wrap-params
+             wrap-cookies
+             wrap-session
+             wrap-multipart-params
+             wrap-exception
+             ))
+
 
 ;; (defn handler [req]
 ;;   (->
@@ -246,7 +258,6 @@
   (def server (launch)))
 ;; (defonce server (launch))
 ;; sudo mongod
-
 
 ;; (str (as-file (from "http://10.1.201.72:18080")))
 ;; /var/folders/j0/v760t6w94d50bql8hlh3rxfc0000gn/T/QRCode5030151942762847936.png
