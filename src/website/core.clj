@@ -1,171 +1,259 @@
-;; Copyright (c) Stuart Sierra, 2012. All rights reserved.  The use
-;; and distribution terms for this software are covered by the Eclipse
-;; Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
-;; which can be found in the file epl-v10.html at the root of this
-;; distribution.  By using this software in any fashion, you are
-;; agreeing to be bound by the terms of this license.  You must not
-;; remove this notice, or any other, from this software.
-
-
 (ns website.core
-  (:use ring.adapter.jetty)
-  (:use ring.util.response))
-;; (:use ring.middleware.reload)
-;; (:use ring.middleware.stacktrace)
-;; (:use [compojure.core :only (GET PUT POST defroutes)])
-;; (:require (compojure handler route)
-;;           [ring.util.response :as response])
-;; (:require [shortener.db :as db]))
+  (:use [ring.adapter.jetty]
+        [ring.util.response]
+        [website.encrypto]
+        [clojure.pprint]
+        [clojure.java.io :refer [copy delete-file file]]
+        [clj.qrgen]
+        [net.cgrand.enlive-html]
+        [ring.middleware.multipart-params]
+        [ring.middleware.session         :refer [wrap-session]]
+        [ring.middleware.params         :refer [wrap-params]]
+        [ring.middleware.cookies        :refer [wrap-cookies]]
+        [ring.middleware.keyword-params :refer [wrap-keyword-params]]
+        [selmer.parser])
+  
+  (:import
+   [javax.crypto Cipher KeyGenerator SecretKey]
+   [javax.crypto.spec SecretKeySpec]
+   [java.security SecureRandom]
+   [org.apache.commons.codec.binary Base64]
+   [com.mongodb MongoOptions ServerAddress]
+   [org.bson.types ObjectId]
+   [com.mongodb DB WriteConcern])
+  
+  (:require [net.cgrand.enlive-html :as html]
+            [clojure.data.json :as json]
+            [clojure.string :as string]
+            [clj-http.client :as client]
+            [compojure.handler :as handler]
+            [compojure.route :as route]
+            [compojure.core :refer [GET POST defroutes]]
+            [monger.core :as mg]
+            [monger.collection :as mc]
+            ;; [clojure.contrib [duck-streams :as ds]]
+            [selmer.parser :refer [render-file]]))
 
-(defn handler [req]
-  (->
-   ;; (file-response "readme.html" {:root "public"})
-   (response "hello")
-   ;; (content-type "text/plain")
+
+(defn save-image
+  ([tempfile image-abs-path]
+   (copy (file tempfile) (file image-abs-path) :encoding "ASCII")
+   (delete-file tempfile)))
+
+(defn gen-image-path
+  ([id] (gen-image-path ".jpg"))
+  ([id extension]
+   (let [product-id (ObjectId. id)
+         image-path (str "/image-upload/product-image/" product-id extension)]
+     {:product-id (ObjectId. id)
+      :image-path image-path
+      :image-abs-path (str "d:/MyConfiguration/lzy13870/Documents/branchs/slsms/ringfullsite/ringfullsite/public" image-path)}))
+  ([] (gen-image-path (str (ObjectId.)) ".jpg")))
+
+
+(defn map-kv
+  ([my-map]
+   (into {} 
+         (for [[k v] my-map] 
+           [(keyword k) v]))))
+
+(defn global-response [resp]
+  (-> resp response (content-type "text/html; charset=UTF-8")))
+
+(defn connect-db
+  "mongodb://[username:password@]host1[:port1][,host2[:port2],…[,hostN[:portN]]][/[database][?options]]"
+  ([](:db (mg/connect-via-uri (str "mongodb://sls:666666@localhost/sls")))))
+
+(defn get-product-list []
+  (let [db (connect-db)
+        coll "products"]
+    (mc/find-maps db coll)))
+
+(defn get-product-list-memo
+  ([] ((memoize get-product-list))))
+
+(defn home
+  ([req]
+   (render-file "home-ext.html"
+                {:title "Home"
+                 :user (str "Current User:" (-> req :session :user ))
+                 :product-list-header ["image" "name" "count" "size" "label"  "color"  "" ""]
+                 :product-list (get-product-list)
+                 :nav-items [{:label "Home" :url "/"}
+                             {:label "Login" :url "/login"}
+                             {:label "Image Upload" :url "/image-upload"}
+                             {:label "New Product" :url "/create-product"}
+                             {:label "About" :url "/about"}]
+                 })
    ))
 
+(defn update-product
+  ([req]
+   (let []
+     (let [{params :params} req
+           {image :image}params
+           {filename :filename} params
+           {tempfile :tempfile} image
+           image-path-obj (gen-image-path (:_id params) (re-find #"\.\w+$" (str filename)))
+           {product-id :product-id}image-path-obj
+           {image-path :image-path}image-path-obj
+           {image-abs-path :image-abs-path}image-path-obj]
+       (let [para-kv (map-kv params)
+             id (:_id para-kv)
+             prod (assoc (dissoc para-kv :_id :image) :image image-path)]
+         (save-image tempfile image-abs-path)
+         (mc/update-by-id (connect-db) "products" (ObjectId. id) prod {:upsert true})
+         (home req)
+         )
+       ;; (response
+       ;;  (str
+       ;;   (let [params-keywords (map-kv params)
+       ;;         id (ObjectId. (:_id params-keywords))]
+       ;;     ;; (mc/update (connect-db) "products" {:_id id} params-keywords {:upsert true})
+       ;;     )
+       ;;   ))
+       ))))
+
+(defn create-product
+  ([req]
+   (let [{params :params} req
+         {image :image} params
+         {filename :filename} image
+         {tempfile :tempfile} image
+         image-path-obj (gen-image-path (str (ObjectId.)) (re-find #"\.\w+$" (str filename)))
+         {product-id :product-id} image-path-obj
+         {image-path :image-path} image-path-obj
+         {image-abs-path :image-abs-path} image-path-obj
+         ]
+     (save-image tempfile image-abs-path)
+     (let [prod (assoc (map-kv (:params req)) :_id product-id :image image-path)
+           db (connect-db)]
+       (render-file
+        "insert.html"
+        {:title (str req)
+         :action "/create-product"
+         :prod (mc/insert-and-return db "products" prod)})))))
+
+(defn delete-product
+  ([req]
+   (response
+    (str
+     (let [id (ObjectId. (:_id (map-kv (:params req))))]
+       [(mc/remove-by-id (connect-db) "products" id) id]
+       )))))
 
 
 
-(defn boot []
-  (run-jetty handler {:port 8080}))
+(defn query-product-by-id
+  ([id] (map-kv (mc/find-by-id (connect-db) "products" (ObjectId. id)))))
 
-;; (boot)
+(defn product-detail
+  ([req]
+   (let [{params :params} req]
+     (let [{id :id} params
+           prod (query-product-by-id id)]
+       (render-file
+        "insert.html"
+        {:title (:name prod)
+         :action "/update-product"
+         :prod prod})))))
 
+(defn login
+  ([req]
+   (let [{cookies :cookies} req
+         {params :params} req
+         {session :session} req]
+     (let [{username :username} (map-kv params)
+           {password :password} (map-kv params)]
+       (if (not (nil? (:user session)))
+         (response (str (:username (first (:user session)))))
+         (let [user (mc/find-maps (connect-db) "users" {:username username,:password (encry password)} [:username])]
+           {:body
+            [(:user session)
+             user
+             ]
+            :session (assoc session :user user)}))))))
+(defn show-login-page
+  ([req] (render-file "login.html" {:title ""})))
 
+(defn wrap-exception
+  ([handler]
+   (try
+     (fn [request]
+       (try (handler request)
+            (catch Exception exception (println-str exception))))
+     (catch Exception exception (println-str exception)))))
 
-;; (ns website.gen)
+(defn wrap-permission
+  ([handler]
+   (fn [request]
+     (let [{cookies :cookies} request
+           {params :params} request
+           {session :session} request]
+       (if (or session (= (count (:user session)) 0))
+         (show-login-page request)
+         (handler (assoc request :user (first (:user session)))))
+       ))))
 
-(require '[clojure.data.json :as json])
-(require '[clj-http.client :as client])
-(require '[clj-http.cookies :as cookies])
-
-(use '[clojure.java.io])
-(use '[clojure.java.shell :only [sh]])
-(use '[clojure.pprint :only [pprint]])
-(use '[clojure.string :only [join]])
-(use '[clojure.xml])
-;; (use '[clojure.data.xml])
-;; (use '[clojure.contrib.trace])
-
-(def co #{})
-(defn set-value[n]
-  (when (not (contains? co n))
-    (def co (conj co n))
-    co))
-
-(def branchs-path "/Volumes/U/branchs/")
-(def data (clojure.xml/parse (str branchs-path "ringfullsite/src/website/tmp.xml")))
-
-(defn append-file[path data]
-  (with-open [wrtr (writer path :append true)]
-    (.write wrtr data)))
-(defn write-file[path data]
-  (with-open [wrtr (writer path)]
-    (.write wrtr data)))
-(defn gen-cs-field-name [cs-name]
-  (when (name cs-name)
-    (str "_"
-         (.toLowerCase (.substring (str (name cs-name)) 0 1))
-         (.substring (str (name cs-name)) 1 (.length (str (name cs-name)))))))
-
-(defn gen-cs-field [cs-name cs-type]
-  (str "private " cs-type " " (gen-cs-field-name (name cs-name)) ";"))
-(defn gen-first-upper [cs-name]
-  (when cs-name (str (.toUpperCase (.substring (str (name cs-name)) 0 1)) (.substring (str (name  cs-name)) 1 (.length (name cs-name))))))
-(defn gen-cs-prop [cs-name cs-type]
-  (let [field-name (gen-cs-field-name cs-name)]
-    (str "\n" (gen-cs-field cs-name cs-type)
-         "\npublic " cs-type " " (name cs-name) " { get { return " field-name "; } set { " field-name " = value; } }")))
-(def cs-clazzs #{})
-
-(defn gen-cs-class [cs-name cs-body]
-  (let[]
-    (str "\npublic class " (name cs-name) " { " cs-body " } ")))
-
-(defn str-left [x len] (when x (cond (> (.length (str x)) len) (.substring (str x) 0 len) :else (str x))))
-(def ^{:static true} list-prop?
-  #(let[]
-     (and
-      (map? %)
-      (vector? (content %))
-      (map? ((content %) 0))
-      (=
-       (count
-        (for [node (content %)]
-          node))
-       (count
-        (for [node (content %)
-              :while (and
-                      (map? node)
-                      (= (tag node) (tag ((content %) 0))))]
-          node))))))
-
-(def ^{:static true} str-prop? #(and (map? %) (vector? (content %)) (string? ((content %) 0))))
-(defn test-impl [x] (cond (string? x)  "It's a string."
-                          (map? x)  (cond (list-prop? x) "It's a list property."
-                                          (str-prop? x) "It's a string property."
-                                          )
-                          (vector? x)  "It's a vector."
-                          (keyword? x)  "It's a keyword."
-                          (nil? x) "It's nil."))
-
-(defn test [x] (when x (str "\n" (test-impl x) " " (str-left x 80) "\n")))
-(defn log[s] (append-file "/Volumes/U/branchs/ringfullsite/src/website/log" (str "\n" s)))
-(write-file "/Volumes/U/branchs/ringfullsite/src/website/log" "")
+(defroutes main-routes
+  (route/files "/")
+  
+  (GET "/create-product" [req] (fn [req] (render-file "insert.html" {:title "Template insert page."})))
+  (GET "/login" [req] show-login-page)
+  (GET "/product-detail/:id" [id] product-detail)
+  (GET "/" [req] home)
+  (GET "/new-product" [req] (render-file "new-product.html" {:title (json/write-str req)}))
+  (GET "/about" [req] (response "This is a private system."))
+  (POST "/create-product" [req] create-product)
+  (POST "/delete-product" [req] delete-product)
+  (POST "/update-product" [req] update-product)
+  (POST "/login" [req] login)
+  (POST "/new-product" {params :params} (response (str "post as params" params)))
+  (route/not-found "Page not found"))
 
 
-(defn gen [x & p]
-  (log (str (test x)))
-  (cond
-    (string? x) x
-    (keyword? x) (name x)
-    (map? x) (cond
-               (list-prop? x) (str
-                               (gen-cs-prop
-                                (tag x)
-                                (str (name (tag ((content x) 0))) "[]"))
-                               (gen (content x) (tag x))
-                               ;; (gen-cs-class
-                               ;;  (tag ((content x) 0))
-                               ;;  (gen (content x)))
-                               )
-               (str-prop? x) (when (set-value (str (tag x) p))
-                               (str (gen-cs-prop (name (tag x)) "string")))
-               :else (cond (set-value (str (tag x) p))
-                           (let[]
-                             (gen-cs-class
-                              (tag x)
-                              (gen (content x) (tag x))))
-                           :else (gen (content x) (tag x))))
-    (vector? x) (and
-                 (> (count x) 0)
-                 (map? (x 0))
-                 (join (for [o x] (gen o p))))))
+;; (:body (client/post "http://localhost:18080/insert" {:name "hello"}))
+;; (client/get "http://localhost:18080/insert" {:pname "hello" :pimage "img"})
+;; (-main)
 
-;; (defn gen-entry[xml-data]
-;;   (str "\nusing System;\nusing System.Collections.Generic;\nusing System.Linq;\nusing System.Text;\nusing System.Threading.Tasks;\nusing System.Xml.Serialization;\nnamespace Xml.Output.Entities\n{\n\tpublic class Entry{\n"
-;;        (gen xml-data)
-;;        "\n\t}\n}"))
+(defn wrap-pprintln
+  ([handler]
+   (fn [request]
+     (pprint (type request))
+     (let [rsp (handler request)]
+       rsp))))
 
-(def xml-path "/Volumes/U/branchs/ringfullsite/src/website/test")
+(def app (-> #'main-routes wrap-params wrap-cookies wrap-keyword-params wrap-session wrap-multipart-params wrap-exception))
 
-(write-file xml-path (gen data))
-
-;; (pprint data)
-;; (pprint (gen-entry data))
-
-;; (def xml-data (parse xml-path))
-;; (print
-;;  (str "\n"
-;;       (join "\n"
-;;             (for [node (content xml-data)
-;;                   :while (map? node)]
-;;               (content node)))))
-;; (def lst ((content xml-data) 0))
+;; (defn handler [req]
+;;   (->
+;;    ;; (response (reduce str (post-page sample-post)))
+;;    ;; (file-response "readme.html" {:root "public"})
+;;    ;; (response "hello")
+;;    (response (main-page req))
+;;    (content-type "text/html; charset=UTF-8")))
 
 
 
+(defn launch []
+  (run-jetty app {:port 18080 :join? false :route "public"}))
+
+(defn -main
+  "启动web应用程序"
+  ^{:static false
+    :dynamic true}
+  [& args]
+  (def server (launch)))
+;; (defonce server (launch))
+;; sudo mongod
 
 
+;; (str (as-file (from "http://10.1.201.72:18080")))
+;; /var/folders/j0/v760t6w94d50bql8hlh3rxfc0000gn/T/QRCode5030151942762847936.png
+;; D:\MyConfiguration\lzy13870\AppData\Local\Temp\QRCode1100735308893157262.png
 
+;; (defn url-attack [] "http://www.baidu.com/baidu.php?url=ssRK00jnh8orQ_g9YOLug-S1m1Sqa7NOHE5osXkcszJquhfwOT5FcREBamf9qfcKjyXkDjl0b7apsAgZY9oBZb65YK7bznpZW8qUHcHF3ccH74QOscntp1_6AJgKa4pKB9IYsUf.7D_iHF8xnhA94wEYL_SNK-deQbfHgI3ynDgg6msw5I7AMHdd_NR2A5jkq8ZFqTrHllgw_E9tGbSNK-deQbmTMdWi1PjNz8smX5dxAS2FnvZWtonrHGEsfq8QjkSyHjblubltXQjkSyMHz4rMG34nheuztIdMugbzTEZF83e5ZGzmTMHvGYTjGo_5Z4mThedlTrHIt5s3The3IhZF8qISZFY3tyZWtVrM-zI5HkzuPv1-3eorzEFb4XrHIkvX5HblqoAVPXzOk8_eAThqPvlZoWmYlXgFYq5ZFbLUrgW8_e2thH-34PLZu3qrHoXkvyNq-----xHEer1IvUdPHV2XgZJyAp7WFYvyu70.U1Yk0ZDqV_1c8fKY5UUnzQb0pyYqnW0Y0ATqmhwln0KdpHdBmy-bIfKspyfqnHb0mv-b5HR40AdY5HDsnHIxn10sn-tknjD1g1nsnW00pvbqn0KzIjY3njT0uy-b5HD3rj6sg1DYPH7xnH6zPj7xnHbdPH9xnH6kn1PxnHTsnj7xnHRYrj9xnHD4nHT0mhbqnW0Yg1DdPfKVm1Y3rjc4n103Pdtknj7xnHnvrjnsPHcvndts0Z7spyfqn0Kkmv-b5H00ThIYmyTqn0KEIhsq0A7B5HKxn0K-ThTqn0KsTjYknjRsnW03PWTv0A4vTjYsQW0snj0snj0s0AdYTjYs0AwbUL0qn0KzpWYs0Aw-IWdsmsKhIjYs0ZKC5H00ULnqn0KBI1YknfK8IjYs0ZPl5fKYIgnqnHc1PjR3n1R1n1m4P1nzP10zrHR0ThNkIjYkPjR4P1fLP16LrHfv0ZPGujdBuj9WPjDLPH0snWnvuHR40AP1UHYkwjm3n1wDnj0znYD1wW-j0A7W5HD0TA3qn0KkUgfqn0KkUgnqn0KlIjYs0AwYpyfqn0K9TLKWm1Ys0ZNspy4Wm1Ys0APzm1YdP1bdP6&us=0.0.0.0.0.0.0&us=0.0.0.0.0.0.13&ck=6203.20.1459747842434.0.0.516.212.0&shh=www.baidu.com&sht=baiduhome_pg")
+;; (future (client/get (url-attack)))
+
+;; (-main)
+(println "loaded.")

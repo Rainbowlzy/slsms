@@ -27,7 +27,7 @@
         <span class="icon-bar">New Product</span>
         <span class="icon-bar">About</span>
       </button>
-      <a class="navbar-brand" href="#">Brand</a>
+      <a class="navbar-brand" href="/">SLSMS</a>
     </div>
 
     <!-- Collect the nav links, forms, and other content for toggling -->
@@ -82,6 +82,7 @@
 
   <div class="row">
     <h1>{{title}}</h1>
+    <h5>{{user}}</h5>
   </div>
 
   <div class="row">
@@ -98,7 +99,7 @@
           {% for prod in product-list %}
           <tr>
             <td>
-              <img alt="{{prod.name}}" style="weight:30px;height:30px" src="{{prod.img}}" onclick="alert('{{prod._id}}')" />
+              <img alt="{{prod.name}}" style="weight:30px;height:30px" src="{{prod.image}}" onclick="alert('{{prod._id}}')" />
             </td>
             <td>{{prod.name}}</td>
             <td>{{prod.count}}</td>

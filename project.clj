@@ -43,6 +43,7 @@
                  [ring/ring-jetty-adapter "1.4.0"]
                  [com.novemberain/monger "3.0.2"]
                  [org.omcljs/om "0.8.8"]
+                 ;; [org.clojure/clojure-contrib "1.2.0-beta1"]
                  [racehub/om-bootstrap "0.5.0"]
                  [ring/ring-codec "1.0.0"]
                  [compojure "1.5.0"]
