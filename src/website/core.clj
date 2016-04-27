@@ -1,7 +1,7 @@
 (ns website.core
   (:use [ring.adapter.jetty]
         [ring.util.response]
-        [website.encrypto]
+        [website.encrypto :refer [encry decry]]
         [clojure.pprint]
         [clojure.java.io :refer [copy delete-file file]]
         [clj.qrgen]
