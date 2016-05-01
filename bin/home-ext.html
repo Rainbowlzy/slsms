@@ -1,0 +1,174 @@
+{% extends "base.html" %} {% block refer %}
+
+<script>
+    function show(productid) {
+        window.location.href = "/product-detail/" + productid;
+    }
+
+    function deleteproduct(productid) {
+        $.ajax("/delete-product", {
+            method: "POST",
+            data: {
+                _id: productid
+            }
+        }).done(function(msg) {
+            window.location.href = "/"
+        });
+    }
+</script>
+
+{% endblock %} {% block header %}
+
+<nav class="navbar navbar-default">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+                <span class="sr-only">Menu</span>
+                <span class="icon-bar">Home</span>
+                <span class="icon-bar">New Product</span>
+                <span class="icon-bar">About</span>
+            </button>
+            <a class="navbar-brand" href="/">SLSMS</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+            <ul class="nav navbar-nav">
+                <li class="active"><a href="#">Link <span class="sr-only">(current)</span></a></li>
+                <li><a href="#">Link</a></li>
+                <li class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Menu <span class="caret"></span></a>
+                    <ul class="dropdown-menu">
+                        {% for item in nav-items %}
+                        <!-- <li role="separator" class="divider"></li> -->
+                        <li>
+                            <a href="{{item.url}}">{{item.label}}</a>
+                        </li>
+                        <!-- <li role="separator" class="divider"></li> -->
+                        {% endfor %}
+                    </ul>
+                </li>
+            </ul>
+
+            <form class="navbar-form navbar-left" role="search">
+                <div class="form-group">
+                    <input type="text" class="form-control" placeholder="Search">
+                </div>
+                <button type="submit" class="btn btn-default">Submit</button>
+            </form>
+            <ul class="nav navbar-nav navbar-right">
+                <li><a href="#">Link</a></li>
+                <li class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Menu <span class="caret"></span></a>
+                    <ul class="dropdown-menu">
+                        {% for item in nav-items %}
+                        <!-- <li role="separator" class="divider"></li> -->
+                        <li>
+                            <a href="{{item.url}}">{{item.label}}</a>
+                        </li>
+                        <!-- <li role="separator" class="divider"></li> -->
+                        {% endfor %}
+                    </ul>
+                </li>
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container-fluid -->
+</nav>
+<!-- ----------------------------------------------------------------- -->
+
+{% endblock %} {% block content %}
+
+<div class="container container-xs-10">
+  <div class="row">
+    <div class="col-xs-6">
+      <form action="{{action}}" method="post" enctype="multipart/form-data">
+        <div class="form-group">
+          <input name="_id" type="hidden" value="{{prod._id}}" />
+          <div class="row">
+            <label for="">name</label>
+            <input name="name" type="text" value="{{prod.name}}" />
+          </div>
+          <div class="row">
+            <label for="">color</label>
+            <input name="color" type="text" value="{{prod.color}}" />
+          </div>
+          <div class="row">
+            <label for="">size</label>
+            <input name="size" type="text" value="{{prod.size}}" />
+          </div>
+          <div class="row">
+            <label for="">label</label>
+            <input name="label" type="text" value="{{prod.label}}" />
+          </div>
+          <div class="row">
+            <label for="">image</label>
+            <input name="image" type="file" value="" />
+            <img alt="{{prod.name}}" src="{{prod.image}}" />
+            <img alt="{{prod.name}}" src="{{prod.qrcode}}" />
+          </div>
+          <button class="btn btn-default" type="submit" id="submit">submit</button>
+
+        </div>
+      </form>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+<div class="container container-xs-10">
+
+    <div class="row">
+        <h1>{{title}}</h1>
+        <h5>{{user}}</h5>
+    </div>
+
+    <div class="row">
+        <div class="col-xs-6">
+            {% block from %} {% endblock %}
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xs-6">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        {% for item in product-list-header %}
+                        <th>{{item}}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prod in product-list %}
+                    <tr>
+                        <td>
+                            <img alt="{{prod.name}}" style="weight:30px;height:30px" src="{{prod.image}}" onclick="alert('{{prod._id}}')" />
+                        </td>
+                        <td>{{prod.name}}</td>
+                        <td>{{prod.count}}</td>
+                        <td>{{prod.size}}</td>
+                        <td>{{prod.label}}</td>
+                        <td>{{prod.color}}</td>
+                        <td>
+                            <button class="btn-block" onclick="show('{{prod._id}}')">detail</button>
+                        </td>
+                        <td>
+                            <button class="btn-block" onclick="deleteproduct('{{prod._id}}')">remove</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+
+{% endblock %} {% block footer %} {% endblock %} {% block script %} {% endblock %}

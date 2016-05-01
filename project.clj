@@ -1,17 +1,11 @@
 (defproject website "0.1.0-SNAPSHOT"
-  :main website.sls
+  :main slsms.core
   :encoding "UTF-8"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :plugins [
-            ;; [lein-swank "1.4.5"]
-            ;; [cider/cider-nrepl "0.11.0"]
-            [cider/cider-nrepl "0.12.0-SNAPSHOT"]
-            [refactor-nrepl "2.3.0-SNAPSHOT"]
-            ;; [refactor-nrepl "2.3.0-SNAPSHOT"]
-            ]
+  :plugins []
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/data.xml "0.1.0-beta1"]
                  [enlive "1.1.6"]

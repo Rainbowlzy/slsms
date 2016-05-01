@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>{{title}}</h1>
+
+<h3>{{sub-title}}</h3>
+
+<form action="{{action}}" method="post" enctype="multipart/form-data">
+  <input name="_id" type="hidden" value="{{prod._id}}"/>
+  <div class="row"><label for="">name</label><input name="name" type="text" value="{{prod.name}}"/></div>
+  <div class="row"><label for="">color</label><input name="color" type="text" value="{{prod.color}}"/></div>
+  <div class="row"><label for="">size</label><input name="size" type="text" value="{{prod.size}}"/></div>
+  <div class="row"><label for="">label</label><input name="label" type="text" value="{{prod.label}}"/></div>
+  <div class="row">
+    <label for="">image</label>
+    <input name="image" type="file" value=""/>
+    <img alt="{{prod.name}}" src="{{prod.image}}"/>
+    <img alt="{{prod.name}}" src="{{prod.qrcode}}"/>
+  </div>
+  <button class="btn btn-default" type="submit" id="submit">submit</button>
+</form>
+
+{% endblock %}
+
+
+
