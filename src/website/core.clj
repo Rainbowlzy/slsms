@@ -1,4 +1,5 @@
 (ns website.core
+  (:gen-class :extends javax.servlet.http.HttpServlet)
   (:use [ring.adapter.jetty]
         [ring.util.response]
         [website.encrypto]
@@ -14,7 +15,6 @@
         [hiccup.form :as form]
         [hiccup.core :refer [html]]
         [selmer.parser])
-  
   (:import
    [javax.crypto Cipher KeyGenerator SecretKey]
    [javax.crypto.spec SecretKeySpec]
@@ -36,22 +36,23 @@
    ;; [clojure.contrib [duck-streams :as ds]]
    [selmer.parser :refer [render-file]]))
 
+(def public-absolute-path (.getAbsolutePath (clojure.java.io/file "./public")))
 
 (defn save-image
   ([tempfile image-abs-path]
    (copy (file tempfile) (file image-abs-path) :encoding "ASCII")
-   (delete-file tempfile)))
+   (delete-file tempfile)
+   image-abs-path))
 
 (defn gen-image-path
+  ([] (gen-image-path (str (ObjectId.)) ".jpg"))
   ([id] (gen-image-path ".jpg"))
   ([id extension]
    (let [product-id (ObjectId. id)
          image-path (str "/image-upload/product-image/" product-id extension)]
      {:product-id (ObjectId. id)
       :image-path image-path
-      :image-abs-path (str "d:/MyConfiguration/lzy13870/Documents/branchs/slsms/ringfullsite/ringfullsite/public" image-path)}))
-  ([] (gen-image-path (str (ObjectId.)) ".jpg")))
-
+      :image-abs-path (str public-absolute-path image-path)})))
 
 (defn map-kv
   ([my-map]
@@ -83,7 +84,6 @@
                  :product-list (get-product-list)
                  :nav-items [{:label "Home" :url "/"}
                              {:label "Login" :url "/login"}
-                             {:label "Image Upload" :url "/image-upload"}
                              {:label "New Product" :url "/create-product"}
                              {:label "About" :url "/about"}]
                  })
@@ -91,49 +91,66 @@
 
 (defn update-product
   ([req]
-   (let []
-     (let [{params :params} req
-           {image :image}params
-           {filename :filename} params
-           {tempfile :tempfile} image
-           image-path-obj (gen-image-path (:_id params) (re-find #"\.\w+$" (str filename)))
-           {product-id :product-id}image-path-obj
-           {image-path :image-path}image-path-obj
-           {image-abs-path :image-abs-path}image-path-obj]
-       (let [id (:_id params)
-             prod (assoc (dissoc params :_id :image) :image image-path)]
-         (save-image tempfile image-abs-path)
-         (mc/update-by-id (connect-db) "products" (ObjectId. id) prod {:upsert true})
-         (home req)
-         )
-       ;; (response
-       ;;  (str
-       ;;   (let [params-keywords (map-kv params)
-       ;;         id (ObjectId. (:_id params-keywords))]
-       ;;     ;; (mc/update (connect-db) "products" {:_id id} params-keywords {:upsert true})
-       ;;     )
-       ;;   ))
-       ))))
+   (let [{params :params} req
+         {image :image} params
+         {filename :filename}  params
+         {tempfile :tempfile} image
+         image-path-obj (gen-image-path (:_id params) (re-find #"\.\w+$" (str filename)))
+         {product-id :product-id} image-path-obj
+         {image-path :image-path} image-path-obj
+         {image-abs-path :image-abs-path} image-path-obj
+         id (:_id params)
+         prod (assoc (dissoc params :_id :image) :image image-path)]
+     (save-image tempfile image-abs-path)
+     (mc/update-by-id (connect-db) "products" (ObjectId. id) prod {:upsert true})
+     (redirect (str "/product-detail/" id))
+     )))
+
+(defn wrap-db-insert
+  ([user ent]
+   (let [u (:username user)
+         d (java.util.Date.)]
+     (conj ent {:created-by u
+                :modified-by u
+                :created-date d
+                :modified-date d}))))
+
+;; (mc/insert-and-return (connect-db) "products"
+;;   (wrap-db-insert {:username "admin"}
+;;     {:_id (ObjectId.)
+;;      :image ""
+;;      :qrcode ""
+;;      }))
 
 (defn create-product
   ([req]
    (let [{params :params} req
+         {session :session} req
+         {user :user} session
          {image :image} params
          {filename :filename} image
          {tempfile :tempfile} image
-         image-path-obj (gen-image-path (str (ObjectId.)) (re-find #"\.\w+$" (str filename)))
+         image-path-obj (gen-image-path
+                          (str (ObjectId.))
+                          (re-find #"\.\w+$" (str filename)))
          {product-id :product-id} image-path-obj
          {image-path :image-path} image-path-obj
          {image-abs-path :image-abs-path} image-path-obj
-         ]
+         qrcode (save-image
+                  (as-file
+                    (from
+                      "http://localhost:18080/product-detail/"
+                      product-id))
+                  (str public-absolute-path "/qrcode/" product-id ".jpg"))]
+     
      (save-image tempfile image-abs-path)
-     (let [prod (assoc (:params req) :_id product-id :image image-path)
+     (let [prod (assoc (:params req) :_id product-id :image image-path :qrcode qrcode)
            db (connect-db)]
        (render-file
         "insert.html"
         {:title "Create Success!"
          :action "/create-product"
-         :prod (mc/insert-and-return db "products" prod)})))))
+         :prod (mc/insert-and-return db "products" (wrap-db-insert user prod))})))))
 
 (defn delete-product
   ([req]
@@ -156,6 +173,9 @@
         {:title (:name prod)
          :action "/update-product"
          :prod prod})))))
+
+
+
 
 (defn login
   ([req]
@@ -201,7 +221,6 @@
 
 (defroutes main-routes
   (route/files "/")
-  
   (GET "/create-product" [req] (fn [req] (render-file "insert.html" {:title "Create A New Product in This Page."})))
   (GET "/login" [req] show-login-page)
   (GET "/product-detail/:id" [id] product-detail)
