@@ -197,8 +197,8 @@
 (defn show-login-page
   ([req] (render-file "login.html" {:title "Sign In"
                                     :prod {:_id (ObjectId.)
-                                           :username "admin"
-                                           :password "admin"}})))
+                                         :username "admin"
+                                         :password "admin"}})))
 
 (defn wrap-exception
   ([handler]
