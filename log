@@ -1,6 +1,0 @@
-
-===================================================================================================
-星期三, 10 二月 2016 18:59:24 +0800
-java.lang.Exception: JSON error (unexpected character): =
-{"request":{"body":{"clientInfo":{"deviceId":"dba6b58da9a4fab008566a3b835dadb422139a6e","extend":"2^com.tongcheng.iphone,4^9.0.2,5^iPhone6_2","mac":"cacdca6fcf78998b8ba745400a0eb92c","refId":"5866741","versionType":"iPhone","clientIp":"10.6.2.52","networkType":"wifi","versionNumber":"8.0.1"}},"header":{"accountID":"5ee7b429-b8c6-400f-8b87-3c384c4ea68a","encryptEffort":"0","serviceName":"getabroaddeststaticlist","reqTime":"1444725647927","version":"20110303090115"}}}
-===================================================================================================
