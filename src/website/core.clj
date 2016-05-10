@@ -99,7 +99,7 @@
            {image-path :image-path}image-path-obj
            {image-abs-path :image-abs-path}image-path-obj]
        (let [id (:_id params)
-             prod (assoc (dissoc params :_id :image) :image image-path)]
+             prod (assoc (dissoc params :_id :image :qrcode) :image image-path)]
          (save-image tempfile image-abs-path)
          (mc/update-by-id (connect-db) "products" (ObjectId. id) prod {:upsert true})
          (redirect "/"))))))
