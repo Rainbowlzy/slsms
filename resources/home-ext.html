@@ -7,6 +7,7 @@
   function show(productid){
   window.location.href="/product-detail/"+productid;
   }
+  
   function deleteproduct(productid){
   $.ajax("/delete-product",{method:"POST",data:{_id:productid}}).done(function(msg){window.location.href="/"});
   }
@@ -93,6 +94,8 @@
             {% for item in product-list-header %}
             <th>{{item}}</th>
             {% endfor %}
+            <th>detail</th>
+            <th>remove</th>
           </tr>
         </thead>
         <tbody>
@@ -100,6 +103,9 @@
           <tr>
             <td>
               <img alt="{{prod.name}}" style="weight:30px;height:30px" src="{{prod.image}}" onclick="alert('{{prod._id}}')" />
+            </td>
+            <td>
+              <img alt="{{prod.qrcode}}" style="weight:30px;height:30px" src="{{prod.qrcode}}" onclick="alert('{{prod._id}}')" />
             </td>
             <td>{{prod.name}}</td>
             <td>{{prod.count}}</td>

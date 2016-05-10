@@ -16,6 +16,7 @@
         [selmer.parser])
   
   (:import
+   [java.net InetAddress]
    [javax.crypto Cipher KeyGenerator SecretKey]
    [javax.crypto.spec SecretKeySpec]
    [java.security SecureRandom]
@@ -35,7 +36,7 @@
    [monger.collection :as mc]
    ;; [clojure.contrib [duck-streams :as ds]]
    [selmer.parser :refer [render-file]]))
-
+(def local-port 18080)
 
 (defn save-image
   ([tempfile image-abs-path]
@@ -49,7 +50,7 @@
          image-path (str "/image-upload/product-image/" product-id extension)]
      {:product-id (ObjectId. id)
       :image-path image-path
-      :image-abs-path (str "d:/MyConfiguration/lzy13870/Documents/branchs/slsms/ringfullsite/ringfullsite/public" image-path)}))
+      :image-abs-path (str (.getAbsolutePath(java.io.File. ".")) "/public" image-path)}))
   ([] (gen-image-path (str (ObjectId.)) ".jpg")))
 
 
@@ -77,17 +78,14 @@
 (defn home
   ([req]
    (render-file "home-ext.html"
-                {:title "Home"
-                 :user (str "Current User : " (-> req :session :user :username str))
-                 :product-list-header ["image" "name" "count" "size" "label"  "color"  "" ""]
-                 :product-list (get-product-list)
-                 :nav-items [{:label "Home" :url "/"}
-                             {:label "Login" :url "/login"}
-                             {:label "Image Upload" :url "/image-upload"}
-                             {:label "New Product" :url "/create-product"}
-                             {:label "About" :url "/about"}]
-                 })
-   ))
+                 {:title "Home"
+                  ;; :user (str "Current User : " (-> req :session :user :username str))
+                  :product-list-header ["image" "qrcode" "name" "count" "size" "label"  "color"]
+                  :product-list (get-product-list)
+                  :nav-items [{:label "Home" :url "/"}
+                              {:label "Login" :url "/login"}
+                              {:label "New Product" :url "/create-product"}
+                              {:label "About" :url "/about"}]})))
 
 (defn update-product
   ([req]
@@ -104,16 +102,7 @@
              prod (assoc (dissoc params :_id :image) :image image-path)]
          (save-image tempfile image-abs-path)
          (mc/update-by-id (connect-db) "products" (ObjectId. id) prod {:upsert true})
-         (home req)
-         )
-       ;; (response
-       ;;  (str
-       ;;   (let [params-keywords (map-kv params)
-       ;;         id (ObjectId. (:_id params-keywords))]
-       ;;     ;; (mc/update (connect-db) "products" {:_id id} params-keywords {:upsert true})
-       ;;     )
-       ;;   ))
-       ))))
+         (redirect "/"))))))
 
 (defn create-product
   ([req]
@@ -121,13 +110,18 @@
          {image :image} params
          {filename :filename} image
          {tempfile :tempfile} image
-         image-path-obj (gen-image-path (str (ObjectId.)) (re-find #"\.\w+$" (str filename)))
+         id (str (ObjectId.))
+         image-path-obj (gen-image-path id (re-find #"\.\w+$" (str filename)))
          {product-id :product-id} image-path-obj
          {image-path :image-path} image-path-obj
          {image-abs-path :image-abs-path} image-path-obj
+         host (.getHostAddress (InetAddress/getLocalHost))
+         uri (str "http://" host ":" local-port "/product-detail/" id)
+         qrcode-image-url (str "http://" host ":" local-port "/image-upload/qrcode/" id ".png")
          ]
+     (save-image (as-file (from uri)) (str (.getAbsolutePath (java.io.File. ".")) "/public/image-upload/qrcode/" id ".png"))     
      (save-image tempfile image-abs-path)
-     (let [prod (assoc (:params req) :_id product-id :image image-path)
+     (let [prod (assoc (:params req) :_id product-id :image image-path :qrcode qrcode-image-url)
            db (connect-db)]
        (render-file
         "insert.html"
@@ -201,11 +195,10 @@
 
 (defroutes main-routes
   (route/files "/")
-  
+  (GET "/" [req] home)
   (GET "/create-product" [req] (fn [req] (render-file "insert.html" {:title "Create A New Product in This Page."})))
   (GET "/login" [req] show-login-page)
   (GET "/product-detail/:id" [id] product-detail)
-  (GET "/" [req] home)
   (GET "/new-product" [req] (render-file "new-product.html" {:title (json/write-str req)}))
   (GET "/about" [req] (response "This is a private system."))
   (POST "/create-product" [req] create-product)
@@ -215,16 +208,12 @@
   (POST "/new-product" {params :params} (response (str "post as params" params)))
   (route/not-found "Page not found"))
 
-
-;; (:body (client/post "http://localhost:18080/insert" {:name "hello"}))
-;; (client/get "http://localhost:18080/insert" {:pname "hello" :pimage "img"})
-;; (-main)
-
 (defn wrap-pprintln
   ([handler]
    (fn [request]
-     (pprint (type request))
+     (pprint request)
      (let [rsp (handler request)]
+       (pprint rsp)
        rsp))))
 
 (def app (-> #'main-routes
@@ -233,38 +222,28 @@
              wrap-cookies
              wrap-session
              wrap-multipart-params
-             wrap-exception
+             wrap-pprintln
              ))
 
-
-;; (defn handler [req]
-;;   (->
-;;    ;; (response (reduce str (post-page sample-post)))
-;;    ;; (file-response "readme.html" {:root "public"})
-;;    ;; (response "hello")
-;;    (response (main-page req))
-;;    (content-type "text/html; charset=UTF-8")))
-
-
-
 (defn launch []
-  (run-jetty app {:port 18080 :join? false :route "public"}))
+  (run-jetty app {:port local-port :join? false}))
 
 (defn -main
-  "启动web应用程序"
   ^{:static false
     :dynamic true}
   [& args]
   (def server (launch)))
-;; (defonce server (launch))
-;; sudo mongod
 
-;; (str (as-file (from "http://10.1.201.72:18080")))
-;; /var/folders/j0/v760t6w94d50bql8hlh3rxfc0000gn/T/QRCode5030151942762847936.png
-;; D:\MyConfiguration\lzy13870\AppData\Local\Temp\QRCode1100735308893157262.png
+(defonce server (launch))
 
-;; (defn url-attack [] "http://www.baidu.com/baidu.php?url=ssRK00jnh8orQ_g9YOLug-S1m1Sqa7NOHE5osXkcszJquhfwOT5FcREBamf9qfcKjyXkDjl0b7apsAgZY9oBZb65YK7bznpZW8qUHcHF3ccH74QOscntp1_6AJgKa4pKB9IYsUf.7D_iHF8xnhA94wEYL_SNK-deQbfHgI3ynDgg6msw5I7AMHdd_NR2A5jkq8ZFqTrHllgw_E9tGbSNK-deQbmTMdWi1PjNz8smX5dxAS2FnvZWtonrHGEsfq8QjkSyHjblubltXQjkSyMHz4rMG34nheuztIdMugbzTEZF83e5ZGzmTMHvGYTjGo_5Z4mThedlTrHIt5s3The3IhZF8qISZFY3tyZWtVrM-zI5HkzuPv1-3eorzEFb4XrHIkvX5HblqoAVPXzOk8_eAThqPvlZoWmYlXgFYq5ZFbLUrgW8_e2thH-34PLZu3qrHoXkvyNq-----xHEer1IvUdPHV2XgZJyAp7WFYvyu70.U1Yk0ZDqV_1c8fKY5UUnzQb0pyYqnW0Y0ATqmhwln0KdpHdBmy-bIfKspyfqnHb0mv-b5HR40AdY5HDsnHIxn10sn-tknjD1g1nsnW00pvbqn0KzIjY3njT0uy-b5HD3rj6sg1DYPH7xnH6zPj7xnHbdPH9xnH6kn1PxnHTsnj7xnHRYrj9xnHD4nHT0mhbqnW0Yg1DdPfKVm1Y3rjc4n103Pdtknj7xnHnvrjnsPHcvndts0Z7spyfqn0Kkmv-b5H00ThIYmyTqn0KEIhsq0A7B5HKxn0K-ThTqn0KsTjYknjRsnW03PWTv0A4vTjYsQW0snj0snj0s0AdYTjYs0AwbUL0qn0KzpWYs0Aw-IWdsmsKhIjYs0ZKC5H00ULnqn0KBI1YknfK8IjYs0ZPl5fKYIgnqnHc1PjR3n1R1n1m4P1nzP10zrHR0ThNkIjYkPjR4P1fLP16LrHfv0ZPGujdBuj9WPjDLPH0snWnvuHR40AP1UHYkwjm3n1wDnj0znYD1wW-j0A7W5HD0TA3qn0KkUgfqn0KkUgnqn0KlIjYs0AwYpyfqn0K9TLKWm1Ys0ZNspy4Wm1Ys0APzm1YdP1bdP6&us=0.0.0.0.0.0.0&us=0.0.0.0.0.0.13&ck=6203.20.1459747842434.0.0.516.212.0&shh=www.baidu.com&sht=baiduhome_pg")
-;; (future (client/get (url-attack)))
 
-;; (-main)
-(println "loaded.")
+
+
+
+
+
+
+
+
+
+
