@@ -36,12 +36,11 @@
    [monger.collection :as mc]
    ;; [clojure.contrib [duck-streams :as ds]]
    [selmer.parser :refer [render-file]]))
-<<<<<<< HEAD
+
 (def local-port 18080)
-=======
+
 
 (def public-absolute-path (.getAbsolutePath (clojure.java.io/file "./public")))
->>>>>>> 0a802320047e62deeea80ab0d5b174a640a0266b
 
 (defn save-image
   ([tempfile image-abs-path]
@@ -57,13 +56,7 @@
          image-path (str "/image-upload/product-image/" product-id extension)]
      {:product-id (ObjectId. id)
       :image-path image-path
-<<<<<<< HEAD
-      :image-abs-path (str (.getAbsolutePath(java.io.File. ".")) "/public" image-path)}))
-  ([] (gen-image-path (str (ObjectId.)) ".jpg")))
-
-=======
-      :image-abs-path (str public-absolute-path image-path)})))
->>>>>>> 0a802320047e62deeea80ab0d5b174a640a0266b
+      :image-abs-path (str (.getAbsolutePath(java.io.File. ".")) "/public" image-path)})))
 
 (defn map-kv
   ([my-map]
@@ -89,15 +82,14 @@
 (defn home
   ([req]
    (render-file "home-ext.html"
-<<<<<<< HEAD
-                 {:title "Home"
-                  ;; :user (str "Current User : " (-> req :session :user :username str))
-                  :product-list-header ["image" "qrcode" "name" "count" "size" "label"  "color"]
-                  :product-list (get-product-list)
-                  :nav-items [{:label "Home" :url "/"}
-                              {:label "Login" :url "/login"}
-                              {:label "New Product" :url "/create-product"}
-                              {:label "About" :url "/about"}]})))
+                {:title "Home"
+                 ;; :user (str "Current User : " (-> req :session :user :username str))
+                 :product-list-header ["image" "qrcode" "name" "count" "size" "label"  "color"]
+                 :product-list (get-product-list)
+                 :nav-items [{:label "Home" :url "/"}
+                             {:label "Login" :url "/login"}
+                             {:label "New Product" :url "/create-product"}
+                             {:label "About" :url "/about"}]})))
 
 (defn update-product
   ([req]
@@ -115,17 +107,6 @@
          (save-image tempfile image-abs-path)
          (mc/update-by-id (connect-db) "products" (ObjectId. id) prod {:upsert true})
          (redirect "/"))))))
-=======
-                {:title "Home"
-                 :user (str "Current User : " (-> req :session :user :username str))
-                 :product-list-header ["image" "name" "count" "size" "label"  "color"  "" ""]
-                 :product-list (get-product-list)
-                 :nav-items [{:label "Home" :url "/"}
-                             {:label "Login" :url "/login"}
-                             {:label "New Product" :url "/create-product"}
-                             {:label "About" :url "/about"}]
-                 })
-   ))
 
 (defn update-product
   ([req]
@@ -159,7 +140,7 @@
 ;;      :image ""
 ;;      :qrcode ""
 ;;      }))
->>>>>>> 0a802320047e62deeea80ab0d5b174a640a0266b
+
 
 (defn create-product
   ([req]
@@ -169,7 +150,6 @@
          {image :image} params
          {filename :filename} image
          {tempfile :tempfile} image
-<<<<<<< HEAD
          id (str (ObjectId.))
          image-path-obj (gen-image-path id (re-find #"\.\w+$" (str filename)))
          {product-id :product-id} image-path-obj
@@ -179,32 +159,29 @@
          uri (str "http://" host ":" local-port "/product-detail/" id)
          qrcode-image-url (str "http://" host ":" local-port "/image-upload/qrcode/" id ".png")
          ]
-     (save-image (as-file (from uri)) (str (.getAbsolutePath (java.io.File. ".")) "/public/image-upload/qrcode/" id ".png"))     
+     (save-image (as-file (from uri)) (str (.getAbsolutePath (java.io.File. ".")) "/public/image-upload/qrcode/" id ".png"))
      (save-image tempfile image-abs-path)
      (let [prod (assoc (:params req) :_id product-id :image image-path :qrcode qrcode-image-url)
-=======
-         image-path-obj (gen-image-path
-                          (str (ObjectId.))
-                          (re-find #"\.\w+$" (str filename)))
-         {product-id :product-id} image-path-obj
-         {image-path :image-path} image-path-obj
-         {image-abs-path :image-abs-path} image-path-obj
-         qrcode (save-image
-                  (as-file
+           image-path-obj (gen-image-path
+                           (str (ObjectId.))
+                           (re-find #"\.\w+$" (str filename)))
+           {product-id :product-id} image-path-obj
+           {image-path :image-path} image-path-obj
+           {image-abs-path :image-abs-path} image-path-obj
+           qrcode (save-image
+                   (as-file
                     (from
-                      "http://localhost:18080/product-detail/"
-                      product-id))
-                  (str public-absolute-path "/qrcode/" product-id ".jpg"))]
-     
-     (save-image tempfile image-abs-path)
-     (let [prod (assoc (:params req) :_id product-id :image image-path :qrcode qrcode)
->>>>>>> 0a802320047e62deeea80ab0d5b174a640a0266b
-           db (connect-db)]
-       (render-file
-        "insert.html"
-        {:title "Create Success!"
-         :action "/create-product"
-         :prod (mc/insert-and-return db "products" (wrap-db-insert user prod))})))))
+                     "http://localhost:18080/product-detail/"
+                     product-id))
+                   (str public-absolute-path "/qrcode/" product-id ".jpg"))]
+       (save-image tempfile image-abs-path)
+       (let [prod (assoc (:params req) :_id product-id :image image-path :qrcode qrcode)
+             db (connect-db)]
+         (render-file
+          "insert.html"
+          {:title "Create Success!"
+           :action "/create-product"
+           :prod (mc/insert-and-return db "products" (wrap-db-insert user prod))}))))))
 
 (defn delete-product
   ([req]
@@ -251,8 +228,8 @@
 (defn show-login-page
   ([req] (render-file "login.html" {:title "Sign In"
                                     :prod {:_id (ObjectId.)
-                                         :username "admin"
-                                         :password "admin"}})))
+                                           :username "admin"
+                                           :password "admin"}})))
 
 (defn wrap-exception
   ([handler]
@@ -275,10 +252,7 @@
 
 (defroutes main-routes
   (route/files "/")
-<<<<<<< HEAD
   (GET "/" [req] home)
-=======
->>>>>>> 0a802320047e62deeea80ab0d5b174a640a0266b
   (GET "/create-product" [req] (fn [req] (render-file "insert.html" {:title "Create A New Product in This Page."})))
   (GET "/login" [req] show-login-page)
   (GET "/product-detail/:id" [id] product-detail)
