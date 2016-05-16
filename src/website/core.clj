@@ -95,13 +95,14 @@
   ([req]
    (let []
      (let [{params :params} req
-           {image :image}params
+           {image :image} params
            {filename :filename} params
            {tempfile :tempfile} image
-           image-path-obj (gen-image-path (:_id params) (re-find #"\.\w+$" (str filename)))
-           {product-id :product-id}image-path-obj
-           {image-path :image-path}image-path-obj
-           {image-abs-path :image-abs-path}image-path-obj]
+           {id :_id} params
+           image-path-obj (gen-image-path id (re-find #"\.\w+$" (str filename)))
+           {product-id :product-id} image-path-obj
+           {image-path :image-path} image-path-obj
+           {image-abs-path :image-abs-path} image-path-obj]
        (let [id (:_id params)
              prod (assoc (dissoc params :_id :image :qrcode) :image image-path)]
          (save-image tempfile image-abs-path)
