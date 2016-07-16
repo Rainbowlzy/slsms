@@ -270,7 +270,7 @@
   (run-jetty app {:port 18080 :join? false :route "public"}))
 
 (defn -main
-  "启动web应用程序"
+  "Launch the web application"
   ^{:static false
     :dynamic true}
   [& args]
@@ -278,7 +278,7 @@
 ;; (defonce server (launch))
 ;; sudo mongod
 
-;; (str (as-file (from "http://10.1.201.72:18080")))
+(str (as-file (from "http://10.1.201.72:18080")))
 ;; /var/folders/j0/v760t6w94d50bql8hlh3rxfc0000gn/T/QRCode5030151942762847936.png
 ;; D:\MyConfiguration\lzy13870\AppData\Local\Temp\QRCode1100735308893157262.png
 
@@ -286,7 +286,8 @@
 ;; (future (client/get (url-attack)))
 
 ;; (-main)
-(println "loaded.")
+
+
 
 
 
